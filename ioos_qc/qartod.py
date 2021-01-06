@@ -14,7 +14,10 @@ import pandas as pd
 from ioos_qc.utils import (
     isnan,
     isfixedlength,
-    add_flag_metadata, great_circle_distance, mapdates
+    add_flag_metadata,
+    great_circle_distance,
+    mapdates,
+    distance_from_target
 )
 
 L = logging.getLogger(__name__)  # noqa
@@ -80,11 +83,15 @@ def qartod_compare(vectors : Sequence[Sequence[N]]
     return result
 
 
-@add_flag_metadata('location_test_quality_flag', 'Location Test Quality Flag')
-def location_test(lon : Sequence[N],
-                  lat : Sequence[N],
-                  bbox : Tuple[N, N, N, N] = (-180, -90, 180, 90),
-                  range_max : N = None
+@add_flag_metadata(standard_name='location_test_quality_flag',
+                   long_name='Location Test Quality Flag')
+def location_test(lon: Sequence[N],
+                  lat: Sequence[N],
+                  bbox: Tuple[N, N, N, N] = (-180, -90, 180, 90),
+                  range_max: N = None,
+                  target_lat: N = None,
+                  target_lon: N = None,
+                  target_range: N = None
                   ) -> np.ma.core.MaskedArray:
     """Checks that a location is within reasonable bounds.
 
@@ -143,7 +150,18 @@ def location_test(lon : Sequence[N],
         d = great_circle_distance(lat, lon)
         flag_arr[d > range_max] = QartodFlags.SUSPECT
 
-    # Ignore warnings when comparing NaN values even though they are masked
+    # Distance From Target Test
+    if target_lat is not None and target_lon is not None and \
+            target_range is not None:
+        if len(target_lon) == 1 and len(target_lat) == 1:
+            # If one target lat/lon and range is given get the distance
+            #  from the target
+            d_from_target = distance_from_target(lat, lon,
+                                                 target_lat * np.ones(lat.size), target_lon * np.ones(lat.size))
+
+        flag_arr[d_from_target > target_range] = QartodFlags.SUSPECT
+
+        # Ignore warnings when comparing NaN values even though they are masked
     # https://github.com/numpy/numpy/blob/master/doc/release/1.8.0-notes.rst#runtime-warnings-when-comparing-nan-numbers
     with np.errstate(invalid='ignore'):
         flag_arr[(lon < bbox.minx) | (lat < bbox.miny) |
