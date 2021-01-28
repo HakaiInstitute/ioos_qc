@@ -513,7 +513,11 @@ def spike_test(inp : Sequence[N],
                    long_name='Rate of Change Test Quality Flag')
 def rate_of_change_test(inp : Sequence[N],
                         tinp : Sequence[N],
-                        threshold : float
+                        threshold : float,
+                        zinp : Sequence[N]=None,
+                        lat : Sequence[N]=None,
+                        lon : Sequence[N]=None,
+                        axis : str ='time',
                         ) -> np.ma.core.MaskedArray:
     """Checks the first order difference of a series of values to see if
     there are any values exceeding a threshold defined by the inputs.
@@ -548,8 +552,18 @@ def rate_of_change_test(inp : Sequence[N],
     # calculate rate of change in units/second
     roc = np.ma.zeros(inp.size, dtype='float')
 
-    tinp = mapdates(tinp).flatten()
-    roc[1:] = np.abs(np.diff(inp) / np.diff(tinp).astype('timedelta64[s]').astype(float))
+    # Derive rate of change based on the axis provided
+    if axis is 'time':
+        tinp = mapdates(tinp).flatten()
+        roc[1:] = np.abs(np.diff(inp) / np.diff(tinp).astype('timedelta64[s]').astype(float))
+    elif axis is 'depth':
+        roc[1:] = np.abs(np.diff(inp) / np.diff(zinp).astype(float))
+    elif axis is 'lon':
+        roc[1:] = np.abs(np.diff(inp) / np.diff(lon).astype(float))
+    elif axis is 'lat':
+        roc[1:] = np.abs(np.diff(inp) / np.diff(lat).astype(float))
+    else:
+        raise ValueError(f'Axis input ({axis}) is not time, depth, lon, or lat.')
 
     with np.errstate(invalid='ignore'):
         flag_arr[roc > threshold] = QartodFlags.SUSPECT
