@@ -620,7 +620,10 @@ def spike_test(inp: Sequence[N],
                    long_name='Rate of Change Test Quality Flag')
 def rate_of_change_test(inp : Sequence[N],
                         tinp : Sequence[N],
-                        threshold : float
+                        threshold : float,
+                        n_dev: float=None,
+                        tim_dev: float=None,
+                        min_records: int=None
                         ) -> np.ma.core.MaskedArray:
     """Checks the first order difference of a series of values to see if
     there are any values exceeding a threshold defined by the inputs.
@@ -637,6 +640,9 @@ def rate_of_change_test(inp : Sequence[N],
               If anything else is passed in the format is assumed to be seconds since the unix epoch.
         threshold: A float value representing a rate of change over time,
                    in observation units per second.
+        n_dev: Number of standard deviation considered to define the threshold
+        tim_dev: Period of time in hours over which is calculated the standard deviation prior to a record N
+        min_records: Minimum records to consider to determinate the standard deviation threshold.
 
     Returns:
         A masked array of flag values equal in size to that of the input.
@@ -657,6 +663,19 @@ def rate_of_change_test(inp : Sequence[N],
 
     tinp = mapdates(tinp).flatten()
     roc[1:] = np.abs(np.diff(inp) / np.diff(tinp).astype('timedelta64[s]').astype(float))
+
+    # if n_dev and tim_dev given compute standard deviation threshold
+    if n_dev and tim_dev:
+        series = pd.Series(roc, index=tinp)
+        windows = series.rolling(f'{tim_dev}h', min_periods=min_records)
+        std_threshold = n_dev * windows.std()
+
+        # Update threshold to handle both a fix value or the standard deviation, which ever is the greatest
+        if threshold:
+            threshold *= np.ones(inp.size)
+            threshold[threshold < std_threshold] = std_threshold[threshold < std_threshold]
+        else:
+            threshold = std_threshold
 
     with np.errstate(invalid='ignore'):
         flag_arr[roc > threshold] = QartodFlags.SUSPECT
