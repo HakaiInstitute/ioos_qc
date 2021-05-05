@@ -1189,6 +1189,25 @@ class QartodRateOfChangeTest(unittest.TestCase):
         )
         npt.assert_array_equal(expected, result)
 
+    def test_rate_of_change_std_deviation_threshold(self):
+        times = self.times
+        arr = [2, 10, 2.1, 3, 4, 5, 7, 10, 0, 2, 2.2, 2, 1, 2, 3, 90, 91, 92, 93, 1, 2, 3, 4, 5]
+        expected = [1, 3, 3, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 3, 1, 1, 1, 1]
+        inputs = [
+            arr,
+            np.asarray(arr, dtype=np.floating),
+            dask_arr(np.asarray(arr, dtype=np.floating))
+        ]
+        for i in inputs:
+            result = qartod.rate_of_change_test(
+                inp=i,
+                tinp=times,
+                threshold=self.threshold,
+                n_dev=1,
+                tim_dev=1
+            )
+            npt.assert_array_equal(expected, result)
+
 
 class QartodFlatLineTest(unittest.TestCase):
 
