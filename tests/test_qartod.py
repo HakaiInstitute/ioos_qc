@@ -1132,6 +1132,58 @@ class QartodSpikeTest(unittest.TestCase):
                 method=123
             )
 
+
+    def test_spike_test_inputs(self):
+        inp = [3, 4.99, 5, 6, 8, 6, 6, 6.75, 6, 6, 5.3, 6, 6, 9, 5, None, 4, 4]
+        expected_suspect_only = [2, 3, 1, 1, 3, 3, 1, 3, 1, 1, 3, 1, 3, 3, 3, 9, 9, 2]
+        expected_fail_only = [2, 1, 1, 1, 4, 1, 1, 1, 1, 1, 1, 1, 4, 4, 4, 9, 9, 2]
+        suspect_threshold = .5
+        fail_threshold = 1
+
+        npt.assert_array_equal(
+            qartod.spike_test(
+                inp=inp,
+                suspect_threshold=suspect_threshold,
+            ),
+            expected_suspect_only)
+        npt.assert_array_equal(
+            qartod.spike_test(
+                inp=inp,
+                fail_threshold=fail_threshold,
+            ),
+            expected_fail_only)
+
+    def test_spike_test_std_inputs(self):
+        suspect_threshold = 0.5
+        fail_threshold = 1
+
+        arr = [-0.189, -0.0792, -0.0122, 0.0457, 0.0671, 0.0213, -0.0488, -0.1463, -0.2438, -0.3261, -0.3871, -0.4054,
+               -0.3932, -0.3383, -0.2804, -0.2347, -0.2134, -0.2347, -0.2926, -0.3597, -0.442, -0.509, 0, -0.5944,
+               -0.57, -0.4267, -0.2926, -0.1585, -0.0945, -0.0762]
+
+        expected = [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 1, 2]
+
+        inputs = [
+            arr,
+            np.asarray(arr, dtype=np.floating),
+            dask_arr(np.asarray(arr, dtype=np.floating))
+        ]
+        for i in inputs:
+            npt.assert_array_equal(
+                qartod.spike_test(
+                    inp=i,
+                    suspect_threshold=suspect_threshold,
+                    fail_threshold=fail_threshold,
+                    method='differential',
+                    n_dev_suspect=2,
+                    n_dev_fail=3,
+                    n_records=5,
+                    min_records=3
+                ),
+                expected
+            )
+
+
 class QartodRateOfChangeTest(unittest.TestCase):
 
     def setUp(self):
