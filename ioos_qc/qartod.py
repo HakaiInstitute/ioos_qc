@@ -618,12 +618,12 @@ def spike_test(inp: Sequence[N],
 
 @add_flag_metadata(standard_name='rate_of_change_test_quality_flag',
                    long_name='Rate of Change Test Quality Flag')
-def rate_of_change_test(inp : Sequence[N],
-                        tinp : Sequence[N],
-                        threshold : float,
-                        n_dev: float=None,
-                        tim_dev: float=None,
-                        min_records: int=None
+def rate_of_change_test(inp: Sequence[N],
+                        tinp: Sequence[N],
+                        threshold: float,
+                        n_dev: float = None,
+                        tim_dev: str = None,
+                        min_records: int = None
                         ) -> np.ma.core.MaskedArray:
     """Checks the first order difference of a series of values to see if
     there are any values exceeding a threshold defined by the inputs.
@@ -641,7 +641,8 @@ def rate_of_change_test(inp : Sequence[N],
         threshold: A float value representing a rate of change over time,
                    in observation units per second.
         n_dev: Number of standard deviation considered to define the threshold
-        tim_dev: Period of time in hours over which is calculated the standard deviation prior to a record N
+        tim_dev: Period of time over which is calculated the standard deviation prior to a record N. It
+              should be in a string format compatible with pd.to_timedelta (ex: "8h" for 8 hours).
         min_records: Minimum records to consider to determinate the standard deviation threshold.
 
     Returns:
@@ -667,7 +668,7 @@ def rate_of_change_test(inp : Sequence[N],
     # if n_dev and tim_dev given compute standard deviation threshold
     if n_dev and tim_dev:
         series = pd.Series(roc, index=tinp)
-        windows = series.rolling(f'{tim_dev}h', min_periods=min_records)
+        windows = series.rolling(tim_dev, min_periods=min_records)
         std_threshold = n_dev * windows.std()
 
         # Update threshold to handle both a fix value or the standard deviation, which ever is the greatest
