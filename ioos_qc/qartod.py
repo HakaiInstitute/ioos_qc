@@ -502,10 +502,14 @@ def climatology_test(config : Union[ClimatologyConfig, Sequence[Dict[str, Tuple]
 
 @add_flag_metadata(standard_name='spike_test_quality_flag',
                    long_name='Spike Test Quality Flag')
-def spike_test(inp : Sequence[N],
-               suspect_threshold: N,
-               fail_threshold: N,
-               method='average'
+def spike_test(inp: Sequence[N],
+               suspect_threshold: N = None,
+               fail_threshold: N = None,
+               method: str = 'average',
+               n_dev_suspect: N = None,
+               n_dev_fail: N = None,
+               n_records: N = None,
+               min_records: N = None
                ) -> np.ma.core.MaskedArray:
     """Check for spikes by checking neighboring data against thresholds
 
@@ -521,13 +525,17 @@ def spike_test(inp : Sequence[N],
         inp: Input data as a numeric numpy array or a list of numbers.
         suspect_threshold: The SUSPECT threshold value, in observations units.
         fail_threshold: The SUSPECT threshold value, in observations units.
-        method [default:'average','diff']: optional input to assign the method used to detect spikes.
+        method: [default:'average','diff'] optional input to assign the method used to detect spikes.
             "average": Determine if there is a spike at data point n-1 by subtracting
                 the midpoint of n and n-2 and taking the absolute value of this
                 quantity, and checking if it exceeds a low or high threshold.
             "diff": Determine if there is a spike at data point n by calculating the difference
                 between n and n-1 and n+1 and n variation. To considered, (n - n-1)*(n+1 - n) should
                 be smaller than zero (in opposite direction).
+        n_dev_suspect: Number of standard deviation to use for the SUSPECT threshold
+        n_dev_fail: Number of standard deviation to use for the FAIL threshold
+        n_records: N records to consider for computing the standard deviation
+        min_records: Minimum records to consider for computing the standard deviation
 
     Returns:
         A masked array of flag values equal in size to that of the input.
@@ -563,16 +571,40 @@ def spike_test(inp : Sequence[N],
     else:
         raise ValueError('"'+str(method)+'" method is unknown')
 
+    # If standard deviation method inputs are provided, retrieve their corresponding thresholds
+    if (n_dev_fail or n_dev_suspect) and n_records:
+        # if n_dev and tim_dev given compute standard deviation threshold
+        series = pd.Series(inp)
+        windows = series.rolling(n_records, min_periods=min_records, center=True)
+        std_threshold = windows.std()
+
+        # Update threshold to handle both a fix value or the standard deviation, which ever is the greatest
+        if n_dev_suspect and suspect_threshold:
+            suspect_threshold *= np.ones(inp.size)
+            above_threshold = suspect_threshold < n_dev_fail * std_threshold
+            suspect_threshold[above_threshold] = std_threshold[above_threshold]
+        else:
+            suspect_threshold = n_dev_suspect * std_threshold
+
+        if n_dev_fail and fail_threshold:
+            fail_threshold *= np.ones(inp.size)
+            above_threshold = fail_threshold < n_dev_fail * std_threshold
+            fail_threshold[above_threshold] = fail_threshold[above_threshold]
+        else:
+            fail_threshold = n_dev_fail * std_threshold
+
     # Start with everything as passing (1)
     flag_arr = np.ma.ones(inp.size, dtype='uint8')
 
     # If n-1 - ref is greater than the low threshold, SUSPECT test
-    with np.errstate(invalid='ignore'):
-        flag_arr[diff > suspect_threshold] = QartodFlags.SUSPECT
+    if suspect_threshold is not None:
+        with np.errstate(invalid='ignore'):
+            flag_arr[diff > suspect_threshold] = QartodFlags.SUSPECT
 
     # If n-1 - ref is greater than the high threshold, FAIL test
-    with np.errstate(invalid='ignore'):
-        flag_arr[diff > fail_threshold] = QartodFlags.FAIL
+    if fail_threshold is not None:
+        with np.errstate(invalid='ignore'):
+            flag_arr[diff > fail_threshold] = QartodFlags.FAIL
 
     # test is undefined for first and last values
     flag_arr[0] = QartodFlags.UNKNOWN
