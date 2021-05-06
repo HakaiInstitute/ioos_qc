@@ -581,15 +581,15 @@ def spike_test(inp: Sequence[N],
         # Update threshold to handle both a fix value or the standard deviation, which ever is the greatest
         if n_dev_suspect and suspect_threshold:
             suspect_threshold *= np.ones(inp.size)
-            above_threshold = suspect_threshold < n_dev_fail * std_threshold
-            suspect_threshold[above_threshold] = std_threshold[above_threshold]
+            above_threshold = suspect_threshold < n_dev_suspect * std_threshold
+            suspect_threshold[above_threshold] = n_dev_suspect * std_threshold[above_threshold]
         else:
             suspect_threshold = n_dev_suspect * std_threshold
 
         if n_dev_fail and fail_threshold:
             fail_threshold *= np.ones(inp.size)
             above_threshold = fail_threshold < n_dev_fail * std_threshold
-            fail_threshold[above_threshold] = fail_threshold[above_threshold]
+            fail_threshold[above_threshold] = n_dev_fail * std_threshold[above_threshold]
         else:
             fail_threshold = n_dev_fail * std_threshold
 
